@@ -38,9 +38,9 @@ contract EventTickets {
         LogGetRefund should provide information about the refund requester and the number of tickets refunded.
         LogEndSale should provide infromation about the contract owner and the balance transferred to them.
     */
-    event LogBuyTickets(address purchaser, uint numberOfTickets);
-    event LogGetRefund(address accountRefunded, uint numberOfTicketsRefunded);
-    event LogEndSale(address contractOwner, uint balanceTransfered);
+    event LogBuyTickets(address buyer, uint numTickets);
+    event LogGetRefund(address accountRefunded, uint numTickets);
+    event LogEndSale(address owner, uint balance);
 
     /*
         Create a modifier that throws an error if the msg.sender is not the owner.
@@ -58,7 +58,10 @@ contract EventTickets {
     */
     constructor(string memory _description, string memory _url, uint _ticketNumber) public {
         owner = msg.sender;
-        myEvent = Event({description: _description, website: _url, totalTickets: _ticketNumber, isOpen: true, sales: 0});
+        myEvent.description = _description;
+        myEvent.website = _url;
+        myEvent.totalTickets = _ticketNumber;
+        myEvent.isOpen = true;
     }
 
     /*
@@ -85,11 +88,7 @@ contract EventTickets {
         returns the number of tickets that address has purchased.
     */
     function getBuyerTicketCount(address _buyer) public view returns(uint) {
-        if (myEvent.buyers[_buyer] != 0) {
-            return myEvent.buyers[_buyer];
-        } else {
-            revert('hasnt bought yet');
-        }
+        return myEvent.buyers[_buyer];
     }
 
     /*
@@ -122,13 +121,13 @@ contract EventTickets {
     //     _;
     // }
 
-    function buyTickets(uint _numberOfTickets) public payable returns(uint) {
+    function buyTickets(uint _numberOfTickets) public payable {
         require(myEvent.isOpen, 'event is closed');
         require(msg.value >= _numberOfTickets * TICKET_PRICE, 'value not enough for transaction');
         require(myEvent.totalTickets - myEvent.sales >= _numberOfTickets, 'sold out');
 
         myEvent.buyers[msg.sender] += _numberOfTickets;
-        myEvent.totalTickets -= _numberOfTickets;
+        myEvent.sales += _numberOfTickets;
 
         uint _amountToRefund = msg.value - (TICKET_PRICE * _numberOfTickets);
         if (_amountToRefund > 0) {
@@ -136,8 +135,6 @@ contract EventTickets {
         }
 
         emit LogBuyTickets(msg.sender, _numberOfTickets);
-
-        return _numberOfTickets;
     }
 
     /*
@@ -154,12 +151,9 @@ contract EventTickets {
 
         uint _amountToRefund = myEvent.buyers[msg.sender];
 
-        uint _initialTotalTickets = myEvent.totalTickets;
-        myEvent.totalTickets = _initialTotalTickets + _amountToRefund;
-
-        uint _valueToRefund = TICKET_PRICE * _amountToRefund;
-        msg.sender.transfer(_valueToRefund);
-
+        myEvent.sales -= _amountToRefund;
+        delete myEvent.buyers[msg.sender];
+        address(msg.sender).transfer(_amountToRefund * TICKET_PRICE);
         emit LogGetRefund(msg.sender, _amountToRefund);
     }
 
@@ -174,8 +168,8 @@ contract EventTickets {
     */
     function endSale() public isOwner {
         myEvent.isOpen = false;
-        uint balanceTransfered = TICKET_PRICE + myEvent.totalTickets;
-        owner.transfer(balanceTransfered);
+        uint balanceTransfered = address(this).balance;
+        owner.transfer(address(this).balance);
         emit LogEndSale(owner, balanceTransfered);
     }
 }
