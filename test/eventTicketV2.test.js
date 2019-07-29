@@ -44,6 +44,11 @@ contract('EventTicketV2', function(accounts) {
     })
 
     describe("Functions", () => {
+
+        beforeEach(async () => {
+            instance = await EventTicketsV2.new()
+        })
+
         describe("addEvent()", async() =>{
             it("only the owner should be able to add an event", async() => {
                 await instance.addEvent(event1.description, event1.website, event1.ticketsAvailable, {from: deployAccount} )
